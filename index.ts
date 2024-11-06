@@ -11,6 +11,8 @@ const exportFile = resolve(Deno.cwd(), args.exportFile || "./output.csv");
 
 // Define the folder containing Markdown files
 const highlightsFolderPath = `${folderPath}/highlights`;
+// Define the folder containing HTML files
+const htmlFolderPath = `${folderPath}/content`;
 
 /**
  * Function to read JSON files from a folder
@@ -57,6 +59,32 @@ async function readMarkdownFile(slug: string) {
 }
 
 /**
+ * Function to read the content of an HTML file
+ * @param {string} slug - The slug of the HTML file
+ * @returns {Promise<string>} - Returns a promise that resolves to the content of the HTML file
+ */
+async function readHtmlFile(slug: string) {
+  const filePath = `${htmlFolderPath}/${slug}.html`;
+  try {
+    if (!await exists(filePath)) {
+      return "";
+    }
+
+    const decoder = new TextDecoder("utf-8");
+    const fileContent = await Deno.readFile(filePath);
+    // If file is empty, return an empty string
+    if (fileContent.byteLength === 0) {
+      return "";
+    }
+
+    return decoder.decode(fileContent);
+  } catch (error) {
+    console.error(`Error reading HTML file: ${filePath}`, error);
+    return "";
+  }
+}
+
+/**
  * Convert the markdown notes to highlights.
  * By converting every occurrence of the Markdown symbol '>' to 'Highlight:'
  * Lightdrop should pickup the highlights and display them in the highlights section.
@@ -64,16 +92,33 @@ async function readMarkdownFile(slug: string) {
  * @returns {string} - The converted highlights content
  */
 function convertMarkdownToHighlights(markdown: string) {
-  return markdown.replace(/>/g, "Highlight:");
+  return markdown.replaceAll(/>/g, "Highlight:");
+}
+
+interface OmnivoreExport {
+  id: string;
+  slug: string;
+  title: string;
+  description: string;
+  author: null | string;
+  url: string;
+  state: string;
+  readingProgress: number;
+  thumbnail: null | string;
+  labels: string[];
+  savedAt: string;
+  updatedAt: string;
+  publishedAt: null | string;
 }
 
 // Read JSON data from the folder
-const jsonData = await readJsonFiles(folderPath);
+const jsonData: Array<OmnivoreExport> = await readJsonFiles(folderPath);
 
 // Convert JSON to CSV format
 const csvData = [];
 for (const item of jsonData) {
   const markdownContent = await readMarkdownFile(item.slug);
+  const htmlContent = await readHtmlFile(item.slug);
   csvData.push({
     folder: "Omnivore",
     url: item.url,
